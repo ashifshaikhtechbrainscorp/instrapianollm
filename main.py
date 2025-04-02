@@ -13,8 +13,8 @@ load_dotenv()
 
 CACHE_FILE = "cache.json"
 # API_KEY = os.getenv("OPENAI_API_KEY")
-openai.api_key = os.getenv('OPENAI_API_KEY')
-
+api_key = os.getenv('OPENAI_API_KEY')
+client = OpenAI(api_key=api_key)
 app = FastAPI()
 
 app.add_middleware(
@@ -78,11 +78,9 @@ async def generate_explanation(request: ExplanationRequest):
     ]
 
     try:
-        reply = openai.chat.completions.create(
+        reply = client.chat.completions.create(
             model="gpt-4o-mini",
-            messages=messages,
-            temperature=0.7,
-            max_tokens=100
+            messages=messages
         )
         print(reply)
         response = reply.choices[0].message.content
