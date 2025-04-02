@@ -1,5 +1,5 @@
 import hashlib
-from webbrowser import Error
+import openai
 from fastapi import FastAPI
 from pydantic import BaseModel
 import ollama
@@ -7,8 +7,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from openai import OpenAI
 import os
 import json
+from dotenv import load_dotenv
+
+load_dotenv()
 
 CACHE_FILE = "cache.json"
+API_KEY = os.getenv("OPENAI_API_KEY")
 
 app = FastAPI()
 
@@ -30,8 +34,16 @@ def load_cache():
     if not os.path.exists(CACHE_FILE):
         with open(CACHE_FILE, "w") as f:
             json.dump({}, f)
-    with open(CACHE_FILE, "r") as f:
-        return json.load(f)
+
+    try:
+        with open(CACHE_FILE, "r") as f:
+            return json.load(f)
+    except json.JSONDecodeError:
+        # Reset the cache file if it's corrupted
+        with open(CACHE_FILE, "w") as f:
+            json.dump({}, f)
+        return {}
+
 
 def save_cache(cache):
     with open(CACHE_FILE, "w") as f:
@@ -43,7 +55,7 @@ def generate_md5(request: ExplanationRequest):
 
 client = OpenAI(
   base_url="https://openrouter.ai/api/v1",
-  api_key="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",
+  api_key=API_KEY
 )
 
 
@@ -60,25 +72,30 @@ async def generate_explanation(request: ExplanationRequest):
         return {"response": cache[request_hash], "cached": True}
 
     # Prepare the input prompt
-    query = (
-        f"Rewrite the following explanation strictly in under 20 words in a way that relates to {request.lesson_context}.\n"
-        f"with respect to user hobby: {request.user_hobby}\n"
-        f"Original Text: {request.original_text}\n"
-        "Make the explanation engaging and simple to understand."
-    )
+    messages = [
+        {"role": "user", "content": (
+            f"Rewrite the following explanation strictly in under 20 words in a way that relates to {request.lesson_context}.\n"
+            f"with respect to user hobby: {request.user_hobby}\n"
+            f"Original Text: {request.original_text}\n"
+            "Make the explanation engaging and simple to understand."
+        )}
+    ]
 
     try:
-        completion = client.chat.completions.create(
-            model="meta-llama/llama-3-8b-instruct:free",
-            messages=[{'role': 'user', 'content': query}]
+        reply = openai.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=messages,
+            temperature=0.7,
+            max_tokens=100
         )
-        response = completion.choices[0].message.content
+        print(reply)
+        response = reply.choices[0].message.content
 
         # Store response in cache
         cache[request_hash] = response
         save_cache(cache)
 
-        return {"response": response, "cached": False}
+        return {"response": response}
     except Exception as e:
         return {"error": str(e)}
 
