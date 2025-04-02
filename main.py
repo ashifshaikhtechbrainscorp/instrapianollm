@@ -12,7 +12,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 CACHE_FILE = "cache.json"
-API_KEY = os.getenv("OPENAI_API_KEY")
+# API_KEY = os.getenv("OPENAI_API_KEY")
+openai.api_key = os.getenv('OPENAI_API_KEY')
 
 app = FastAPI()
 
@@ -52,11 +53,6 @@ def save_cache(cache):
 def generate_md5(request: ExplanationRequest):
     hash_input = f"{request.original_text}|{request.user_hobby}|{request.lesson_context}"
     return hashlib.md5(hash_input.encode()).hexdigest()
-
-client = OpenAI(
-  base_url="https://openrouter.ai/api/v1",
-  api_key=API_KEY
-)
 
 
 @app.post("/generate_explanation")
